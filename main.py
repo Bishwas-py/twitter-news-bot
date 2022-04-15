@@ -7,6 +7,9 @@ import requests
 from tweepy import errors
 
 from secrets import *
+import logging
+
+logging.basicConfig(filename='err.log', filemode='w', format='%(message)s')
 
 headers = {
     'authority': 'biv.com',
@@ -88,13 +91,13 @@ def tweet_now(data: dict):
             )
         try:
             api.update_status(tweet_message)
-            print("Newly twitted:  ", data['title'])
+            logging.warning(f"Newly twitted:    {data['title']}")
         except errors.Forbidden:
-            print(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
+            logging.warning(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
     else:
         if not data['title'] in logged_list:
             logged_list.append(data['title'])
-            print("Already Twitted:  ", data['title'])
+            logging.warning(f"Already Twitted:  {data['title']}")
 
 
 def news_scraper():
