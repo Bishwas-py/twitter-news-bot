@@ -1,8 +1,10 @@
 import json
+import time
 
 import tweepy
 from bs4 import BeautifulSoup
 import requests
+from tweepy import errors
 
 from secrets import *
 
@@ -14,6 +16,17 @@ headers = {
 auth = tweepy.OAuthHandler(api_key, api_secret)
 auth.set_access_token(access_token, access_secret)
 api = tweepy.API(auth)
+
+hashtags = "#Yaletown #gastown #discovervancouver #burnaby #coquitlam #northvancouver #newwestminster #newwest " \
+           "#westvancouver #langley #richmond #diamondtest "
+
+raw_tweet_message = """
+{title}
+{hashtags}
+{link}
+"""
+
+logged_list = []
 
 
 def read_tweet():
@@ -27,22 +40,61 @@ def write_tweet(data):
     if data['link'] not in twitted_messages:
         with open('twitted_messages.txt', 'a+') as file:
             file.write(data['link'] + "\n")
-        return "wrote-it"
+        return "write-it"
     else:
         return "already-written"
 
 
+def make_tweet(title, link, hashtags=hashtags):
+    return raw_tweet_message.format(
+        title=title,
+        hashtags=hashtags,
+        link=link
+    )
+
+
+def get_new_hashtags(remove_len:int):
+    raw_new_hashtags = hashtags[:-remove_len]
+    raw_new_hashtags_set = set(raw_new_hashtags.split(" "))
+    main_hashtags_set = set(hashtags.split(" "))
+    usable_new_hashtags = main_hashtags_set.intersection(raw_new_hashtags_set)
+    new_hashtags = " ".join(usable_new_hashtags)
+    return new_hashtags
+
+
 def tweet_now(data: dict):
-    tweet_message = f"""
-{data['title']}
-{data['link']}
-"""
     # message twitted here
-    if write_tweet(data) == "wrote-it":
+    if write_tweet(data) == "write-it":
         # Generate text tweet
-        api.update_status(tweet_message)
+        if len(make_tweet(data['title'], data['link'])) > 280:
+            title = data['title']
+
+            if len(title) > 280:
+                title = title[:-27]
+                new_hashtags = get_new_hashtags(len(title))
+            else:
+                new_hashtags = get_new_hashtags(len(title) + 27)
+
+            tweet_message = make_tweet(
+                title=title,
+                hashtags=new_hashtags,
+                link=data['link']
+            )
+        else:
+            tweet_message = make_tweet(
+                title=data['title'],
+                hashtags=hashtags,
+                link=data['link']
+            )
+        try:
+            api.update_status(tweet_message)
+            print("Newly twitted:  ", data['title'])
+        except errors.Forbidden:
+            print(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
     else:
-        print("Already Twitted:  ", data['title'])
+        if not data['title'] in logged_list:
+            logged_list.append(data['title'])
+            print("Already Twitted:  ", data['title'])
 
 
 def news_scraper():
@@ -53,7 +105,6 @@ def news_scraper():
     items_soup = channel.find_all('item')
     items = []
     for item_soup in items_soup:
-
         title = item_soup.find('title')
         link = item_soup.find('link')
 
