@@ -9,16 +9,20 @@ from tweepy import errors
 from secrets import *
 import logging
 
-logging.basicConfig(filename='err.log', filemode='w', format='%(message)s')
+import feedparser
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(message)s | %(asctime)s | [%(levelname)s]",
+    handlers=[
+        logging.FileHandler("err.log"),
+        logging.StreamHandler()
+])
+logging.error(("XYA"))
 headers = {
     'authority': 'biv.com',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
 }
-
-auth = tweepy.OAuthHandler(api_key, api_secret)
-auth.set_access_token(access_token, access_secret)
-api = tweepy.API(auth)
 
 hashtags = "#Yaletown #gastown #discovervancouver #burnaby #coquitlam #northvancouver #newwestminster #newwest " \
            "#westvancouver #langley #richmond #diamondtest "
@@ -30,6 +34,13 @@ raw_tweet_message = """
 """
 
 logged_list = []
+
+TWEET_MESSAGE = True
+
+if TWEET_MESSAGE:
+    auth = tweepy.OAuthHandler(api_key, api_secret)
+    auth.set_access_token(access_token, access_secret)
+    api = tweepy.API(auth)
 
 
 def read_tweet():
@@ -56,7 +67,7 @@ def make_tweet(title, link, hashtags=hashtags):
     )
 
 
-def get_new_hashtags(remove_len:int):
+def get_new_hashtags(remove_len: int):
     raw_new_hashtags = hashtags[:-remove_len]
     raw_new_hashtags_set = set(raw_new_hashtags.split(" "))
     main_hashtags_set = set(hashtags.split(" "))
@@ -90,72 +101,37 @@ def tweet_now(data: dict):
                 link=data['link']
             )
         try:
-            api.update_status(tweet_message)
-            logging.warning(f"Newly twitted:    {data['title']}")
+            if TWEET_MESSAGE:
+                api.update_status(tweet_message)
+            logging.info(f"Newly twitted:    {data['title']}")
         except errors.Forbidden:
-            logging.warning(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
+            logging.error(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
     else:
         if not data['title'] in logged_list:
             logged_list.append(data['title'])
-            logging.warning(f"Already Twitted:  {data['title']}")
+            logging.info(f"Already Twitted:  {data['title']}")
 
 
-def news_scraper():
-    feed_url = 'https://www.timescolonist.com/rss/bc-news'
-    response = requests.get(feed_url, headers=headers)
-    xml_soup = BeautifulSoup(response.text)
-    channel = xml_soup.find('channel')
-    items_soup = channel.find_all('item')
-    items = []
-    for item_soup in items_soup:
-        title = item_soup.find('title')
-        link = item_soup.find('link')
-
-        if not link.text:
-            link = item_soup.find('guid')
-
-        description = item_soup.find('description')
-        author = item_soup.find('dc:creator')
-        if not author:
-            author = item_soup.find('author')
-
-        if author:
-            author = author.text
-
-        pubdate = item_soup.find('pubdate')
-
-        if pubdate:
-            pubdate = pubdate.text
-
-        categories_soup = item_soup.find('category')
-        categories = []
-        if categories_soup:
-            categories = [category.text for category in categories_soup]
-        media_thumbnail = item_soup.find('media:thumbnail')
-        if media_thumbnail:
-            media_thumbnail = media_thumbnail['url']
-        data = {
-            'title': title.text,
-            'link': link.text,
-            'description': description.text,
-            'author': author,
-            'pubdate': pubdate,
-            'categories': categories,
-            'media_thumbnail': media_thumbnail
-        }
-        tweet_now(data)
-        items.append(
-            data
-        )
-
-    result = items
-
-    return result
+def news_scraper(feed_url='https://www.timescolonist.com/rss/bc-news'):
+    feed = feedparser.parse(feed_url)
+    for entry in feed.entries:
+        if "http://biv.com/rss" != feed_url or (
+                "http://biv.com/rss" == feed_url and "/real-estate" in entry.link
+        ):
+            tweet_now(entry)
 
 
 if __name__ == "__main__":
     file = open("twitted_messages.txt", "w+")
     file.close()
 
+rss_feeds = [
+    "https://www.westerninvestor.com/rss/british-columbia",
+    "https://www.timescolonist.com/rss/bc-news",
+    "https://dailyhive.com/feed/vancouver",
+    "http://biv.com/rss"
+]
+
 while True:
-    news_scraper()
+    for rss_feed in rss_feeds:
+        news_scraper(rss_feed)

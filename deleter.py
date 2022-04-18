@@ -18,7 +18,7 @@ auth.set_access_token(access_token, access_secret)
 api = tweepy.API(auth)
 
 # set cutoff date, use utc to match twitter
-cutoff_date = datetime.utcnow() - timedelta(seconds=55)
+cutoff_date = datetime.utcnow() - timedelta(seconds=69)
 cutoff_date = cutoff_date.replace(tzinfo=pytz.UTC)
 
 
