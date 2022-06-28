@@ -17,15 +17,14 @@ logging.basicConfig(
     handlers=[
         logging.FileHandler("err.log"),
         logging.StreamHandler()
-])
-logging.error(("XYA"))
+    ])
+
 headers = {
     'authority': 'biv.com',
     'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
 }
 
-hashtags = "#Yaletown #gastown #discovervancouver #burnaby #coquitlam #northvancouver #newwestminster #newwest " \
-           "#westvancouver #langley #richmond #diamondtest "
+hashtags = "#webdev #web3 #webdevelopment #javascript #python #indiedevelopment"
 
 raw_tweet_message = """
 {title}
@@ -80,6 +79,16 @@ def tweet_now(data: dict):
     # message twitted here
     if write_tweet(data) == "write-it":
         # Generate text tweet
+        link = requests.post(
+            "https://xoomato.com/api/make-url/",
+            data={
+                "original_url": data['link'],
+                "key": "xoomato-create-short-uri"
+            }
+        ).json()
+        if link.get("short_query") and link.get("success"):
+            link_to_be_posted = "https://xoomato.com/" + link.get("short_query")
+
         if len(make_tweet(data['title'], data['link'])) > 280:
             title = data['title']
 
@@ -92,20 +101,20 @@ def tweet_now(data: dict):
             tweet_message = make_tweet(
                 title=title,
                 hashtags=new_hashtags,
-                link=data['link']
+                link=link_to_be_posted
             )
         else:
             tweet_message = make_tweet(
                 title=data['title'],
                 hashtags=hashtags,
-                link=data['link']
+                link=link_to_be_posted
             )
-        try:
-            if TWEET_MESSAGE:
-                api.update_status(tweet_message)
-            logging.info(f"Newly twitted:    {data['title']}")
-        except errors.Forbidden:
-            logging.error(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
+        # try:
+        if TWEET_MESSAGE:
+            api.update_status(tweet_message)
+        logging.info(f"Newly twitted:    {data['title']}")
+        # except errors.Forbidden:
+        #     logging.error(f"Error on printing (Forbidden, Len: {len(tweet_message)}): {tweet_message}")
     else:
         if not data['title'] in logged_list:
             logged_list.append(data['title'])
@@ -115,10 +124,7 @@ def tweet_now(data: dict):
 def news_scraper(feed_url='https://www.timescolonist.com/rss/bc-news'):
     feed = feedparser.parse(feed_url)
     for entry in feed.entries:
-        if "http://biv.com/rss" != feed_url or (
-                "http://biv.com/rss" == feed_url and "/real-estate" in entry.link
-        ):
-            tweet_now(entry)
+        tweet_now(entry)
 
 
 if __name__ == "__main__":
@@ -126,10 +132,7 @@ if __name__ == "__main__":
     file.close()
 
 rss_feeds = [
-    "https://www.westerninvestor.com/rss/british-columbia",
-    "https://www.timescolonist.com/rss/bc-news",
-    "https://dailyhive.com/feed/vancouver",
-    "http://biv.com/rss"
+    "https://dev.to/feed/tag/top"
 ]
 
 while True:
