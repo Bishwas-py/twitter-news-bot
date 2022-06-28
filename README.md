@@ -20,6 +20,8 @@ rss_feeds = [
     "http://biv.com/rss"
 ]
 ```
+## Delete all tweets at one
+The `deleter.py` can help you to bulk delete tweets. `cutoff_date` variable can be use to set the date range.
 
 ## Execution
 Execution is super easy
